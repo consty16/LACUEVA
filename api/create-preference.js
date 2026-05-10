@@ -33,8 +33,11 @@ module.exports = async (req, res) => {
       return res.status(400).json({ error: 'El carrito está vacío' });
     }
 
-    // Calcular el total real sumando todos los productos del carrito
-    const totalAmount = items.reduce((sum, item) => sum + Number(item.price), 0);
+    // Calcular el total real sumando todos los productos del carrito (forzando número)
+    const totalAmount = items.reduce((sum, item) => {
+      const p = Number(item.price) || 0;
+      return sum + p;
+    }, 0);
     const itemCount   = items.length;
 
     // LOG DE DIAGNÓSTICO — verificar qué llega al servidor

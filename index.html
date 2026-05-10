@@ -912,11 +912,18 @@ async function checkout(){
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        items: cart.map(i => ({
-          name:  i.nombre || i.name,
-          price: i.precio || i.price,
-          desc:  i.descripcion || 'Piedra preciosa — La Cueva'
-        }))
+        items: cart.map(i => {
+          // Asegurar que el precio sea un número limpio
+          let rawPrice = i.precio || i.price || 0;
+          if (typeof rawPrice === 'string') {
+            rawPrice = rawPrice.replace(/[^0-9]/g, ''); // Quitar todo lo que no sea número
+          }
+          return {
+            name:  i.nombre || i.name,
+            price: Number(rawPrice),
+            desc:  i.descripcion || 'Piedra preciosa — La Cueva'
+          };
+        })
       })
     });
 
