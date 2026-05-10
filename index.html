@@ -462,7 +462,7 @@ const db={
 
   /* ── Órdenes: Supabase ── */
   orders: async (userId=null)=>{
-    const f=userId?`?user_id=eq.${userId}&order=created_at.desc`:'?order=created_at.desc';
+    const f=userId?`?select=*,users(*)&user_id=eq.${userId}&order=created_at.desc`:'?select=*,users(*)&order=created_at.desc';
     return supa('orders','GET',null,f);
   },
   createOrder: async (order)=> supa('orders','POST',order),
@@ -598,7 +598,11 @@ async function doRecover(){
     } else {
       const errData = await res.json();
       console.error('Error Supabase Recovery:', errData);
-      erMsg(m, errData.msg || 'Error al enviar. Verificá el email.');
+      let msg = errData.msg || errData.error_description || 'Error al enviar. Verificá el email.';
+      if (msg.toLowerCase().includes('rate limit')) {
+        msg = '⚠ Límite de envíos excedido. Por favor, esperá unos minutos antes de intentar de nuevo.';
+      }
+      erMsg(m, msg);
     }
   }catch(err){
     console.error('Connection error:', err);
@@ -689,7 +693,14 @@ async function doReg(){
       setTimeout(()=>togAuth('l'),3000);
       return;
     }
-    if(data.msg||data.error_description){erMsg(m,data.msg||data.error_description);return;}
+    if(data.msg||data.error_description){
+      let msg = data.msg || data.error_description;
+      if (msg.toLowerCase().includes('rate limit')) {
+        msg = '⚠ Límite de intentos excedido. Por favor, esperá unos minutos.';
+      }
+      erMsg(m, msg);
+      return;
+    }
   }catch(err){
     console.error('Signup error:', err);
     erMsg(m,'Error al crear cuenta.');
