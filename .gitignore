@@ -1,0 +1,19 @@
+# Archivos de entorno (¡nunca subir a Git!)
+.env
+.env.local
+.env.*.local
+
+# Dependencias
+node_modules/
+package-lock.json
+
+# Build outputs
+.vercel
+dist/
+.next/
+
+# Sistema
+.DS_Store
+Thumbs.db
+
+.vercel
