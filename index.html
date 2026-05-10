@@ -375,9 +375,20 @@ footer span{color:var(--sv2)}
 
 <div class="alb" id="alb"></div>
 
-<a class="wa" href="https://wa.me/543815341233" target="_blank" rel="noopener noreferrer" title="WhatsApp">
+<a class="wa" href="https://wa.me/543815341233?text=Bienvenidos%20a%20la%20CUEVA%20%20PIEDRAS%20PRECIOSAS%20%2C%20como%20podemos%20ayudarte%3F" target="_blank" rel="noopener noreferrer" title="WhatsApp">
   <svg viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
 </a>
+
+<div class="ov" id="recoverOv">
+  <div class="modal">
+    <button class="mx" onclick="cRec()">✕</button>
+    <div class="mt">✦ Nueva Contraseña</div>
+    <p class="asw" style="margin-bottom:20px">Ingresá tu nueva clave para actualizarla.</p>
+    <div class="fg"><label>Nueva Contraseña</label><input type="password" id="newP" placeholder="Mínimo 6 caracteres"/></div>
+    <button class="btnp u-w100" onclick="updatePass()">Actualizar Contraseña</button>
+    <p class="msg" id="recMsg"></p>
+  </div>
+</div>
 
 <footer><p><span>LA CUEVA · Piedras Preciosas · Tucumán</span><br/>Desarrollado por <span>C Design IA</span> · <span>Claude · Anthropic</span> &amp; <span>AI Studio · Google</span></p></footer>
 
@@ -571,18 +582,60 @@ async function doRecover(){
   const m=document.getElementById('lMsg');
   if(!e){erMsg(m,'Ingresá tu email primero.');return;}
   try{
+    // Usamos el SITE_URL configurado en Supabase (o el actual)
+    const red = window.location.origin; 
     const res=await fetch(`${SUPA_URL}/auth/v1/recover`,{
       method:'POST',
-      headers:{'apikey':SUPA_KEY,'Content-Type':'application/json'},
-      body:JSON.stringify({email:e})
+      headers:{
+        'apikey':SUPA_KEY,
+        'Authorization': `Bearer ${SUPA_KEY}`,
+        'Content-Type':'application/json'
+      },
+      body:JSON.stringify({email:e, redirectTo: red})
     });
-    if(res.ok){okMsg(m,'✦ Revisá tu email para recuperar tu contraseña.');}
-    else{erMsg(m,'Error al enviar. Verificá el email.');}
+    if(res.ok){
+      okMsg(m,'✦ Revisá tu email para recuperar tu contraseña.');
+    } else {
+      const errData = await res.json();
+      console.error('Error Supabase Recovery:', errData);
+      erMsg(m, errData.msg || 'Error al enviar. Verificá el email.');
+    }
   }catch(err){
+    console.error('Connection error:', err);
     erMsg(m,'Error al conectar. Intentá de nuevo.');
   }
 }
 function togAuth(t){document.getElementById('fLogin').style.display=t==='l'?'block':'none';document.getElementById('fReg').style.display=t==='r'?'block':'none';}
+
+/* ══ RECOVERY LOGIC ══ */
+function cRec(){document.getElementById('recoverOv').classList.remove('open');}
+async function updatePass(){
+  const p=document.getElementById('newP').value, m=document.getElementById('recMsg');
+  if(p.length<6){erMsg(m,'Mínimo 6 caracteres.');return;}
+  const hash = window.location.hash.substring(1);
+  const params = new URLSearchParams(hash);
+  const token = params.get('access_token');
+  if(!token){erMsg(m,'Sesión expirada o inválida.');return;}
+  try{
+    const res=await fetch(`${SUPA_URL}/auth/v1/user`,{
+      method:'PUT',
+      headers:{'apikey':SUPA_KEY,'Authorization':`Bearer ${token}`,'Content-Type':'application/json'},
+      body:JSON.stringify({password:p})
+    });
+    if(res.ok){
+      okMsg(m,'✦ Contraseña actualizada con éxito.');
+      setTimeout(()=>{cRec();window.location.hash='';go('login');},2000);
+    } else {
+      erMsg(m,'Error al actualizar. Intentá de nuevo.');
+    }
+  }catch(e){erMsg(m,'Error de conexión.');}
+}
+function checkRecovery(){
+  const hash = window.location.hash;
+  if(hash.includes('type=recovery') && hash.includes('access_token=')){
+    document.getElementById('recoverOv').classList.add('open');
+  }
+}
 async function doLogin(){
   const e=document.getElementById('lE').value.trim(),p=document.getElementById('lP').value,m=document.getElementById('lMsg');
   if(!e||!p){erMsg(m,'Completá todos los campos.');return;}
@@ -618,28 +671,29 @@ async function doReg(){
   if(p.length<6){erMsg(m,'Mínimo 6 caracteres.');return;}
   // Supabase Auth signup
   try{
+    const red = window.location.origin;
     const res = await fetch(`${SUPA_URL}/auth/v1/signup`,{
       method:'POST',
-      headers:{'apikey':SUPA_KEY,'Content-Type':'application/json'},
-      body:JSON.stringify({email:e,password:p,data:{nombre:n}})
+      headers:{
+        'apikey':SUPA_KEY,
+        'Authorization': `Bearer ${SUPA_KEY}`,
+        'Content-Type':'application/json'
+      },
+      body:JSON.stringify({email:e,password:p,data:{nombre:n}, redirectTo: red})
     });
     const data = await res.json();
     if(data.id||data.user?.id){
       // También guardar en tabla users
       try{ await supa('users','POST',{id:data.id||data.user?.id,nombre:n,email:e,password_hash:''}); }catch(_){}
-      db.setMe({id:data.id||data.user?.id,name:n,email:e,role:'user'});
-      updLBtn();go('panel');return;
+      okMsg(m,'✦ Cuenta creada. Revisá tu email para confirmar.');
+      setTimeout(()=>togAuth('l'),3000);
+      return;
     }
     if(data.msg||data.error_description){erMsg(m,data.msg||data.error_description);return;}
   }catch(err){
-    // Fallback local para testing offline
-    const users=JSON.parse(localStorage.getItem('lc_u')||'[]');
-    if(users.find(x=>x.email===e)){erMsg(m,'Ya existe una cuenta con ese email.');return;}
-    users.push({nombre:n,name:n,email:e,pass:p});
-    localStorage.setItem('lc_u',JSON.stringify(users));
-    db.setMe({id:e,name:n,email:e,role:'user'});
+    console.error('Signup error:', err);
+    erMsg(m,'Error al crear cuenta.');
   }
-  updLBtn();go('panel');
 }
 function doLogout(){db.setMe(null);updLBtn();go('home');}
 function updLBtn(){
@@ -944,7 +998,7 @@ function checkPaymentResult(){
 }
 
 /* ══ INIT ══ */
-updLBtn();updC();checkPaymentResult();
+updLBtn();updC();checkPaymentResult();checkRecovery();
 </script>
 </body>
 </html>

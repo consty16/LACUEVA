@@ -20,7 +20,7 @@ module.exports = async (req, res) => {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   const ACCESS_TOKEN = process.env.MP_ACCESS_TOKEN;
-  const SITE_URL     = process.env.SITE_URL || 'http://localhost:3000';
+  const SITE_URL     = process.env.SITE_URL || 'https://lacueva-piedraspreciosas.vercel.app';
 
   if (!ACCESS_TOKEN) {
     return res.status(500).json({ error: 'MP_ACCESS_TOKEN no configurado' });
