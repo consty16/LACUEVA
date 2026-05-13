@@ -538,6 +538,7 @@ async function renCat(){
 /* ══ CART ══ */
 function updC(){const n=db.cart().length;document.getElementById('cb1').textContent=n;document.getElementById('cb2').textContent=n;}
 function buyNow(mpLink){
+  if(!db.me()){go('login');closeCart();showAl('✦ Iniciá sesión para comprar.');return;}
   if(!mpLink){showAl('⚠ Este producto no tiene link de pago configurado.');return;}
   window.open(mpLink,'_blank');
 }
@@ -892,8 +893,9 @@ function showAl(m){const el=document.getElementById('alb');el.textContent=m;el.s
 
 /* ══ CHECKOUT DINÁMICO — MERCADO PAGO ══ */
 async function checkout(){
-  const cart = db.cart();
-  if(!cart.length) return;
+  if(!db.me()){closeCart();go('login');showAl('✦ Iniciá sesión para comprar.');return;}
+  const cart=db.cart();
+  if(!cart.length)return;
 
   const btn  = document.getElementById('btnPagar');
   const msg  = document.getElementById('mpMsg');
