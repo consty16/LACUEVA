@@ -422,11 +422,12 @@ const MP_PUBLIC_KEY = 'APP_USR-998eae3c-f905-434b-9cac-afd215bf266f';
 const FORMSPREE_URL = 'https://formspree.io/f/xpqbdbyr';
 
 async function supa(table, method='GET', body=null, filters=''){
+  const token = localStorage.getItem('lc_token') || SUPA_KEY;
   const res = await fetch(`${SUPA_URL}/rest/v1/${table}${filters}`, {
     method,
     headers:{
       'apikey': SUPA_KEY,
-      'Authorization': `Bearer ${SUPA_KEY}`,
+      'Authorization': `Bearer ${token}`,
       'Content-Type': 'application/json',
       'Prefer': method==='POST' ? 'return=representation' : ''
     },
@@ -644,11 +645,8 @@ function checkRecovery(){
 async function doLogin(){
   const e=document.getElementById('lE').value.trim(),p=document.getElementById('lP').value,m=document.getElementById('lMsg');
   if(!e||!p){erMsg(m,'Completá todos los campos.');return;}
-  // Admin hardcoded
-  if(e==='admin@lacueva.com'&&p==='lacueva2024'){
-    db.setMe({id:'admin',name:'Administrador',email:e,role:'admin'});updLBtn();go('admin');return;
-  }
-  // Supabase Auth
+  // Supabase Auth — admin y usuarios normales por igual
+  const ADMIN_UID = '1d13b08d-8001-4c15-a8f6-9cad693b76fa';
   try{
     const res = await fetch(`${SUPA_URL}/auth/v1/token?grant_type=password`,{
       method:'POST',
@@ -657,8 +655,19 @@ async function doLogin(){
     });
     const data = await res.json();
     if(data.access_token){
-      db.setMe({id:data.user.id,name:data.user.user_metadata?.nombre||e,email:e,role:'user',token:data.access_token});
-      updLBtn();go('panel');return;
+      const isAdmin = data.user.id === ADMIN_UID;
+      db.setMe({
+        id:data.user.id,
+        name:data.user.user_metadata?.nombre||(isAdmin?'Administrador':e),
+        email:e,
+        role:isAdmin?'admin':'user',
+        token:data.access_token
+      });
+      // Guardar token para que supa() lo use en operaciones autenticadas
+      localStorage.setItem('lc_token', data.access_token);
+      updLBtn();
+      go(isAdmin?'admin':'panel');
+      return;
     }
     if(!res.ok){erMsg(m,'Email o contraseña incorrectos.');return;}
   }catch(err){
@@ -707,7 +716,7 @@ async function doReg(){
     erMsg(m,'Error al crear cuenta.');
   }
 }
-function doLogout(){db.setMe(null);updLBtn();go('home');}
+function doLogout(){db.setMe(null);localStorage.removeItem('lc_token');updLBtn();go('home');}
 function updLBtn(){
   const u=db.me();
   const lb=document.getElementById('lbtn'),dlb=document.getElementById('dlbtn'),ab=document.getElementById('abtn');
