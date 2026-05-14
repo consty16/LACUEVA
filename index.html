@@ -1071,6 +1071,32 @@ function checkPaymentResult(){
   showAl(m.txt);
 }
 
+/* ══ RESEÑAS DE EJEMPLO ══ */
+(function initDefaultRevs(){
+  if(localStorage.getItem('lc_r')) return; // ya hay reseñas, no pisar
+  const defaults = [
+    {
+      name: 'María Laura G.',
+      comment: 'Compré una Amatista y quedé maravillada. La piedra llegó perfectamente embalada, con una tarjeta explicando sus propiedades. La energía que transmite es increíble. ¡Ya estoy pensando en el próximo pedido!',
+      stars: 5,
+      date: '08/05/2026'
+    },
+    {
+      name: 'Carlos Esteban R.',
+      comment: 'Excelente atención y calidad. Le compré un Rubí a mi esposa para su cumpleaños y se emocionó mucho. El envío llegó antes de lo esperado y la piedra es hermosa. 100% recomendable.',
+      stars: 5,
+      date: '02/05/2026'
+    },
+    {
+      name: 'Valentina S.',
+      comment: 'Primera vez que compro en La Cueva y no va a ser la última. El Zafiro que pedí es precioso, tal cual como lo muestran en el catálogo. Muy buena comunicación durante todo el proceso.',
+      stars: 5,
+      date: '24/04/2026'
+    }
+  ];
+  localStorage.setItem('lc_r', JSON.stringify(defaults));
+})();
+
 /* ══ INIT ══ */
 updLBtn();updC();checkPaymentResult();checkRecovery();
 </script>
