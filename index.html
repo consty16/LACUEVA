@@ -879,20 +879,65 @@ async function renTT(){
         <option value="entregado" ${o.estado==='entregado'?'selected':''}>Entregado</option>
         <option value="cancelado" ${o.estado==='cancelado'?'selected':''}>Cancelado</option>
       </select></td>
-      <td><button class="bsm ss" onclick="updTk('${o.id}',${i})">Guardar</button></td>
+      <td><button class="bsm ss" onclick="updTk('${o.id}',${i},'${o.users?.email||''}','${o.producto||''}')">Guardar</button></td>
     </tr>`).join('');
   }catch(e){tb.innerHTML='<tr><td colspan="5" class="nd">Error al cargar</td></tr>';}
 }
-async function updTk(oid,i){
+async function updTk(oid,i,userEmail,producto){
   const tk=document.getElementById('tk_'+i).value.trim();
   const st=document.getElementById('st_'+i).value;
   const data={tracking:tk,estado:st};
-  if((st==='enviado'||st==='entregado')) data.dispatch_date=new Date().toISOString().split('T')[0];
+  if(st==='enviado'||st==='entregado') data.dispatch_date=new Date().toISOString().split('T')[0];
   try{
     await db.updateOrder(oid,data);
     showAl('✦ Tracking actualizado');
     renTT();
-    if(tk&&st==='enviado') console.log(`[MAIL] → orden ${oid}: tracking ${tk}`);
+    // Enviar email de tracking cuando se marca como enviado
+    if(tk && st==='enviado' && userEmail){
+      try{
+        await fetch('/api/send-email',{
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({
+            to: userEmail,
+            subject: '✦ Tu pedido fue enviado — LA CUEVA',
+            html: `<!DOCTYPE html>
+<html lang="es"><head><meta charset="UTF-8"/></head>
+<body style="margin:0;padding:0;background:#03030a;font-family:'Georgia',serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#03030a;padding:40px 20px;">
+<tr><td align="center">
+<table width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#07070f;border:1px solid rgba(180,210,255,.15);border-radius:8px;overflow:hidden;">
+<tr><td style="background:linear-gradient(135deg,#0c0c18,#07070f);padding:36px 40px;text-align:center;border-bottom:1px solid rgba(180,210,255,.1);">
+  <p style="margin:0;font-size:11px;letter-spacing:.5em;color:rgba(180,210,255,.5);text-transform:uppercase;margin-bottom:10px;">Piedras Preciosas · Tucumán</p>
+  <h1 style="margin:0;font-size:28px;letter-spacing:.3em;color:#e8f0ff;font-weight:400;">LA CUEVA</h1>
+</td></tr>
+<tr><td style="padding:40px;">
+  <p style="font-size:11px;letter-spacing:.3em;color:rgba(180,210,255,.6);text-transform:uppercase;margin:0 0 16px;">Estado del pedido</p>
+  <h2 style="margin:0 0 24px;font-size:22px;color:#c8d6e8;letter-spacing:.05em;font-weight:400;">📦 ¡Tu pedido está en camino!</h2>
+  <p style="margin:0 0 28px;font-size:14px;color:rgba(200,214,232,.7);line-height:1.8;">
+    Tu pedido de <strong style="color:#c8d6e8;">${producto}</strong> fue despachado por Correo Argentino.
+  </p>
+  <table width="100%" style="border:1px solid rgba(180,210,255,.1);border-radius:4px;margin-bottom:28px;">
+    <tr><td style="padding:18px;text-align:center;">
+      <p style="margin:0 0 8px;font-size:11px;letter-spacing:.2em;color:rgba(180,210,255,.5);text-transform:uppercase;">Número de tracking</p>
+      <p style="margin:0;font-size:22px;letter-spacing:.15em;color:#e8f0ff;font-weight:400;">${tk}</p>
+    </td></tr>
+  </table>
+  <p style="margin:0 0 8px;font-size:13px;color:rgba(180,210,255,.6);line-height:1.8;">Podés rastrear tu envío en <a href="https://www.correoargentino.com.ar/formularios/e-commerce" style="color:#c8d6e8;">correoargentino.com.ar</a></p>
+  <p style="margin:16px 0 0;font-size:12px;color:rgba(180,210,255,.4);line-height:1.8;">Consultas: WhatsApp <strong style="color:rgba(180,210,255,.7);">+54 381 534-1233</strong></p>
+</td></tr>
+<tr><td style="padding:20px 40px;border-top:1px solid rgba(180,210,255,.08);text-align:center;">
+  <p style="margin:0;font-size:10px;letter-spacing:.2em;color:rgba(180,210,255,.3);text-transform:uppercase;">LA CUEVA · Piedras Preciosas · Tucumán, Argentina</p>
+</td></tr>
+</table></td></tr></table>
+</body></html>`
+          })
+        });
+        showAl('✦ Tracking actualizado · Email enviado');
+      }catch(mailErr){
+        console.error('Error enviando email tracking:',mailErr);
+      }
+    }
   }catch(e){showAl('Error al actualizar.');}
 }
 
