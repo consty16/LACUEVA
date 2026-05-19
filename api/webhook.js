@@ -15,11 +15,16 @@ module.exports = async (req, res) => {
   if (req.method !== 'POST') return res.status(405).end();
 
   try {
-    const { type, data } = req.body;
-    console.log('[WEBHOOK] Tipo:', type, '| ID:', data?.id);
+    console.log('[WEBHOOK] Body completo:', JSON.stringify(req.body));
+    console.log('[WEBHOOK] Query:', JSON.stringify(req.query));
 
-    if (type === 'payment' && data?.id) {
-      const payment = await getPayment(data.id, process.env.MP_ACCESS_TOKEN);
+    const type = req.body?.type || req.query?.type;
+    const dataId = req.body?.data?.id || req.query?.['data.id'] || req.query?.id;
+
+    console.log('[WEBHOOK] Tipo:', type, '| ID:', dataId);
+
+    if (type === 'payment' && dataId) {
+      const payment = await getPayment(dataId, process.env.MP_ACCESS_TOKEN);
       const { id, status, transaction_amount, external_reference, payer } = payment;
 
       console.log('[WEBHOOK] Pago:', { id, status, monto: transaction_amount, ref: external_reference, email: payer?.email });
@@ -27,14 +32,11 @@ module.exports = async (req, res) => {
       if (status === 'approved') {
         const payerEmail = payer?.email;
 
-        // 1 — Actualizar órdenes pendientes del usuario en Supabase
         if (payerEmail && SUPA_KEY) {
           try {
-            // Buscar usuario por email
             const userRes = await supaFetch(`/rest/v1/users?email=eq.${encodeURIComponent(payerEmail)}&limit=1`);
             const user = userRes?.[0];
             if (user?.id) {
-              // Actualizar sus órdenes pendientes a "pagado"
               await supaFetch(
                 `/rest/v1/orders?user_id=eq.${user.id}&estado=eq.pendiente`,
                 'PATCH',
@@ -47,7 +49,6 @@ module.exports = async (req, res) => {
           }
         }
 
-        // 2 — Enviar email de confirmación de compra
         if (payerEmail && BREVO_KEY) {
           try {
             await sendMail(BREVO_KEY, {
@@ -166,14 +167,12 @@ function htmlCompraConfirmada(email, monto, referencia) {
   <table width="100%" cellpadding="0" cellspacing="0" style="background:#03030a;padding:40px 20px;">
     <tr><td align="center">
       <table width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#07070f;border:1px solid rgba(180,210,255,.15);border-radius:8px;overflow:hidden;">
-        <!-- Header -->
         <tr>
           <td style="background:linear-gradient(135deg,#0c0c18,#07070f);padding:36px 40px;text-align:center;border-bottom:1px solid rgba(180,210,255,.1);">
             <p style="margin:0;font-size:11px;letter-spacing:.5em;color:rgba(180,210,255,.5);text-transform:uppercase;margin-bottom:10px;">Piedras Preciosas · Tucumán</p>
             <h1 style="margin:0;font-size:28px;letter-spacing:.3em;color:#e8f0ff;font-weight:400;">LA CUEVA</h1>
           </td>
         </tr>
-        <!-- Body -->
         <tr>
           <td style="padding:40px;">
             <p style="font-size:11px;letter-spacing:.3em;color:rgba(180,210,255,.6);text-transform:uppercase;margin:0 0 16px;">Confirmación de compra</p>
@@ -181,7 +180,6 @@ function htmlCompraConfirmada(email, monto, referencia) {
             <p style="margin:0 0 28px;font-size:14px;color:rgba(200,214,232,.7);line-height:1.8;letter-spacing:.03em;">
               Recibimos tu pago exitosamente. En breve procesaremos tu pedido y te enviaremos el número de tracking cuando sea despachado.
             </p>
-            <!-- Detalle -->
             <table width="100%" style="border:1px solid rgba(180,210,255,.1);border-radius:4px;margin-bottom:28px;">
               <tr>
                 <td style="padding:14px 18px;border-bottom:1px solid rgba(180,210,255,.07);">
@@ -201,7 +199,6 @@ function htmlCompraConfirmada(email, monto, referencia) {
             </p>
           </td>
         </tr>
-        <!-- Footer -->
         <tr>
           <td style="padding:20px 40px;border-top:1px solid rgba(180,210,255,.08);text-align:center;">
             <p style="margin:0;font-size:10px;letter-spacing:.2em;color:rgba(180,210,255,.3);text-transform:uppercase;">LA CUEVA · Piedras Preciosas · Tucumán, Argentina</p>
