@@ -23,7 +23,7 @@ module.exports = async (req, res) => {
 
     console.log('[WEBHOOK] Tipo:', type, '| ID:', dataId);
 
-    if (type === 'payment' && dataId) {
+    if ((type === 'payment' || type === 'topic_merchant_order_wh') && dataId) {
       const payment = await getPayment(dataId, process.env.MP_ACCESS_TOKEN);
       const { id, status, transaction_amount, external_reference, payer } = payment;
 
@@ -73,7 +73,6 @@ module.exports = async (req, res) => {
   }
 };
 
-/* ── Helpers Supabase ── */
 function supaFetch(path, method = 'GET', body = null) {
   return new Promise((resolve, reject) => {
     const data = body ? JSON.stringify(body) : null;
@@ -89,7 +88,6 @@ function supaFetch(path, method = 'GET', body = null) {
       }
     };
     if (data) options.headers['Content-Length'] = Buffer.byteLength(data);
-
     const req = https.request(options, r => {
       let raw = '';
       r.on('data', chunk => raw += chunk);
@@ -104,7 +102,6 @@ function supaFetch(path, method = 'GET', body = null) {
   });
 }
 
-/* ── Helper MP ── */
 function getPayment(paymentId, token) {
   return new Promise((resolve, reject) => {
     const options = {
@@ -126,7 +123,6 @@ function getPayment(paymentId, token) {
   });
 }
 
-/* ── Helper Brevo ── */
 function sendMail(apiKey, payload) {
   return new Promise((resolve, reject) => {
     const data = JSON.stringify(payload);
@@ -157,7 +153,6 @@ function sendMail(apiKey, payload) {
   });
 }
 
-/* ══ TEMPLATES DE EMAIL ══ */
 function htmlCompraConfirmada(email, monto, referencia) {
   const fmt = n => '$' + Number(n).toLocaleString('es-AR');
   return `<!DOCTYPE html>
