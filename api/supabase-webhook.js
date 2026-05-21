@@ -6,11 +6,11 @@ module.exports = async (req, res) => {
 
   if (!record) return res.status(400).json({ error: 'Sin payload' });
 
-  if (record.estado !== 'pagado' || old_record?.estado === 'pagado') {
+  if (record.estado?.toLowerCase() !== 'pagado' || old_record?.estado?.toLowerCase() === 'pagado') {
     return res.status(200).json({ msg: 'Ignorado' });
   }
 
-  const supabaseUrl = process.env.SUPABASE_URL;
+  const supabaseUrl = process.env.SUPA_URL;
   const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
 
   const userRes = await fetch(
