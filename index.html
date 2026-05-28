@@ -327,6 +327,7 @@ footer span{color:var(--sv2)}
             <input type="hidden" id="eid"/>
             <div class="fg"><label>Nombre</label><input type="text" id="pNm" placeholder="Amatista"/></div>
             <div class="fg"><label>Precio ($)</label><input type="number" id="pPr" placeholder="50000"/></div>
+            <div class="fg"><label>Stock</label><input type="number" id="pSt" placeholder="100"/></div>
           <div class="fg"><label>Imagen (ej: AMATISTA.png)</label><input type="text" id="pIc" placeholder="AMATISTA.png"/></div>
             <div class="fg"><label>Link Mercado Pago</label><input type="text" id="pMp" placeholder="https://mpago.la/..."/></div>
             <div class="fg fl"><label>Descripción</label><input type="text" id="pDs" placeholder="Piedra de protección..."/></div>
@@ -394,6 +395,93 @@ footer span{color:var(--sv2)}
 
 <script>
 
+/* ══ SHIPPING (debe estar primero — otras funciones lo usan) ══ */
+const SHIPPING = {
+  zonasPorProvincia: {
+    tucuman:          { zona: 1, cps: [[4000, 4199]] },
+    catamarca:        { zona: 2, cps: [[4700, 4899]] },
+    jujuy:            { zona: 2, cps: [[4600, 4699]] },
+    salta:            { zona: 2, cps: [[4400, 4599]] },
+    santiago_estero:  { zona: 2, cps: [[4200, 4399]] },
+    la_rioja:         { zona: 2, cps: [[5300, 5399]] },
+    cordoba:          { zona: 2, cps: [[5000, 5299]] },
+    buenos_aires_amba:{ zona: 3, cps: [[1000, 1999]] },
+    buenos_aires_prov:{ zona: 3, cps: [[1700, 1999], [6000, 8199]] },
+    santa_fe:         { zona: 3, cps: [[2000, 2499]] },
+    entre_rios:       { zona: 3, cps: [[3100, 3299]] },
+    corrientes:       { zona: 3, cps: [[3400, 3499]] },
+    chaco:            { zona: 3, cps: [[3500, 3699]] },
+    formosa:          { zona: 3, cps: [[3600, 3799]] },
+    misiones:         { zona: 3, cps: [[3300, 3399]] },
+    mendoza:          { zona: 3, cps: [[5500, 5599]] },
+    san_juan:         { zona: 3, cps: [[5400, 5499]] },
+    san_luis:         { zona: 3, cps: [[5700, 5899]] },
+    la_pampa:         { zona: 3, cps: [[6300, 6499]] },
+    neuquen:          { zona: 4, cps: [[8300, 8399]] },
+    rio_negro:        { zona: 4, cps: [[8400, 8499], [8500, 8599]] },
+    chubut:           { zona: 4, cps: [[9000, 9199]] },
+    santa_cruz:       { zona: 4, cps: [[9200, 9399]] },
+    tierra_del_fuego: { zona: 4, cps: [[9400, 9499]] },
+  },
+  precios: {
+    "0.5": [5033, 5572, 6062, 6089],
+    "1":   [5426, 6506, 7087, 7140],
+    "2":   [5954, 6699, 7319, 7739],
+    "3":   [6132, 7074, 7978, 8512],
+    "5":   [7505, 9964,11164,12316],
+  },
+  pasos: [0.5, 1, 2, 3, 5],
+  getZona(cp) {
+    const num = parseInt(cp, 10);
+    if (isNaN(num) || cp.length < 4) return null;
+    for (const [, data] of Object.entries(this.zonasPorProvincia)) {
+      for (const [min, max] of data.cps) {
+        if (num >= min && num <= max) return data.zona;
+      }
+    }
+    return 3;
+  },
+  calcular(pesoKg, cp) {
+    const zona = this.getZona(cp);
+    if (!zona) return null;
+    const peso = Math.max(0.5, Math.min(parseFloat(pesoKg) || 0.5, 5));
+    const paso = this.pasos.find(p => peso <= p) || 5;
+    const idx  = zona - 1;
+    return { zona, precio: this.precios[paso.toString()][idx], pesoFacturado: paso };
+  },
+  formatPrecio(n) {
+    return new Intl.NumberFormat('es-AR', {style:'currency',currency:'ARS',maximumFractionDigits:0}).format(n);
+  },
+};
+
+const shippingWidget = {
+  pesoTotal: 0.5,
+  costoEnvio: 0,
+  onChange: null,
+  onCpInput(cp) {
+    const result  = document.getElementById('shipping-result');
+    const display = document.getElementById('shipping-display');
+    if (cp.length < 4) {
+      if (result)  result.innerHTML   = '';
+      if (display) display.textContent = 'Ingresá tu CP';
+      this._setCosto(0); return;
+    }
+    const r = SHIPPING.calcular(this.pesoTotal, cp);
+    if (!r) {
+      if (result) result.innerHTML = '<span style="color:var(--ruby)">CP no reconocido</span>';
+      this._setCosto(0); return;
+    }
+    const fmtP = SHIPPING.formatPrecio(r.precio);
+    if (result)  result.innerHTML   = `📦 Correo Argentino · Zona ${r.zona} · hasta ${r.pesoFacturado}kg`;
+    if (display) display.textContent = fmtP;
+    this._setCosto(r.precio);
+  },
+  _setCosto(precio) {
+    this.costoEnvio = precio;
+    if (typeof this.onChange === 'function') this.onChange(precio);
+  },
+};
+
 /* ══ DATA ══ */
 var SUPA_STORAGE = 'https://tgoarsmdmyfcsylyurpa.supabase.co/storage/v1/object/public/gems/';
 
@@ -447,7 +535,7 @@ const db={
   },
   savP: async (prod,isEdit=false)=>{
   const imgUrl = prod.imgKey ? SUPA_STORAGE + prod.imgKey.toUpperCase().replace('.PNG','') + '.png' : null;
-  if(isEdit) return supa('products','PATCH',{nombre:prod.nombre,precio:prod.precio,descripcion:prod.descripcion,imagen_url:imgUrl,mp:prod.mp,activo:prod.activo},`?id=eq.${prod.id}`);
+  if(isEdit) return supa('products','PATCH',{nombre:prod.nombre,precio:prod.precio,descripcion:prod.descripcion,stock:prod.stock,imagen_url:imgUrl,mp:prod.mp,activo:prod.activo},`?id=eq.${prod.id}`);
   return supa('products','POST',{nombre:prod.nombre,precio:prod.precio,descripcion:prod.descripcion||'',imagen_url:imgUrl,mp:prod.mp,activo:true});
 },
   delP: async (id)=> supa('products','DELETE',null,`?id=eq.${id}`),
@@ -527,7 +615,7 @@ async function renCat(){
       <img src="${imgSrc}" alt="${p.nombre}" style="width:80px;height:80px;object-fit:contain;margin:0 auto 14px;display:block;filter:drop-shadow(0 0 12px rgba(180,210,255,.35))">
       <div class="gn">${p.nombre}</div>
       <div class="gd">${p.descripcion||''}</div>
-      <div class="gp">Precio: <strong>${fmt(p.precio)}</strong></div>
+      <div class="gp">Precio: <strong>${fmt(p.precio)}</strong><br/><span style="font-size:.65rem;color:${(p.stock||0)>0?'var(--em)':'var(--ruby)'}">📦 Stock: ${p.stock||0}</span></div>
       <div class="gbs">
         <button class="bb" onclick="buyNow('${mpLink}')">💳 Comprar</button>
         <button class="ba" onclick="addCart('${p.id}')">＋ Agregar</button>
@@ -537,7 +625,7 @@ async function renCat(){
 }
 
 /* ══ CART ══ */
-function updC(){const n=db.cart().length;document.getElementById('cb1').textContent=n;document.getElementById('cb2').textContent=n;}
+function updC(){const cart=db.cart();const n=cart.length;document.getElementById('cb1').textContent=n;document.getElementById('cb2').textContent=n;if(typeof shippingWidget!=='undefined')shippingWidget.pesoTotal=cart.reduce((t,i)=>t+0.15,0);} 
 function buyNow(mpLink){
   if(!db.me()){go('login');closeCart();showAl('✦ Iniciá sesión para comprar.');return;}
   if(!mpLink){showAl('⚠ Este producto no tiene link de pago configurado.');return;}
@@ -562,8 +650,22 @@ function openCart(){
   const it=document.getElementById('cItems'),tot=document.getElementById('cTot'),acts=document.getElementById('cActs');
   if(!cart.length){it.innerHTML='<p class="ce">Tu carrito está vacío.</p>';tot.innerHTML='';acts.innerHTML='';}
   else{
-    it.innerHTML=cart.map(i=>`<div class="ci"><img src="${i.img||SUPA_STORAGE+'DIAMANTE.png'}" style="width:28px;height:28px;object-fit:contain"><span class="cin">${i.nombre||i.name}</span><span class="cip">${fmt(i.precio||i.price)}</span><button class="crm" onclick="rmCart('${i.cid}')">✕</button></div>`).join('');
+    it.innerHTML=cart.map(i=>`<div class="ci"><img src="${i.img||SUPA_STORAGE+'DIAMANTE.png'}" style="width:28px;height:28px;object-fit:contain"><span class="cin">${i.nombre||i.name}</span><span class="cip">${fmt(i.precio||i.price)}</span><button class="crm" onclick="rmCart('${i.cid}')">✕</button></div>`).join('')
+    + `<div style="border-top:1px solid var(--bdr);padding:12px 0;margin:12px 0;font-size:.75rem">
+  <label style="color:var(--slo);display:block;margin-bottom:8px">📦 CP de entrega</label>
+  <input id="shipping-cp" type="text" inputmode="numeric" maxlength="4" placeholder="4000" style="background:rgba(180,210,255,.04);border:1px solid var(--bdr);color:var(--sv2);font-family:'Cinzel',serif;font-size:.75rem;padding:8px;border-radius:2px;width:100%;margin-bottom:8px" oninput="shippingWidget.onCpInput(this.value)"/>
+  <div id="shipping-result" style="font-size:.65rem;color:var(--slo);margin-bottom:8px"></div>
+  <div style="border-top:1px solid var(--bdr);padding-top:8px;display:flex;justify-content:space-between;font-size:.75rem">
+    <span style="color:var(--slo)">Envío:</span>
+    <span id="shipping-display" style="color:var(--sv2)">Ingresá CP</span>
+  </div>
+</div>`;
     tot.innerHTML=`Total: <strong>${fmt(cart.reduce((s,i)=>s+(i.precio||i.price||0),0))}</strong>`;
+    shippingWidget.onChange = (costo) => {
+  const subtot = cart.reduce((s,i)=>s+(i.precio||i.price||0),0);
+  const total = subtot + costo;
+  tot.innerHTML = `Total: <strong>${fmt(total)}</strong>`;
+};
     const total=cart.reduce((s,i)=>s+(i.precio||i.price||0),0);
     acts.innerHTML=`
       <button class="bck" id="btnPagar" onclick="checkout()">
@@ -814,6 +916,7 @@ async function savPr(){
     nombre:document.getElementById('pNm').value.trim(),
     imgKey:document.getElementById('pIc').value.trim()||'diamante',
     precio:parseInt(document.getElementById('pPr').value)||50000,
+    stock:parseInt(document.getElementById('pSt').value)||100,
     mp:document.getElementById('pMp').value.trim(),
     descripcion:document.getElementById('pDs').value.trim(),
     activo:true
@@ -821,10 +924,10 @@ async function savPr(){
   if(!prod.nombre){showAl('Ingresá un nombre.');return;}
   try{
     await db.savP(prod, !!eid);
-    clrPr();renPT();showAl('✦ Producto guardado');
+    clrPr();renPT();_prodsCache = [];showAl('✦ Producto guardado');
   }catch(e){showAl('Error al guardar producto.');}
 }
-function clrPr(){['eid','pNm','pIc','pPr','pMp','pDs'].forEach(id=>document.getElementById(id).value='');}
+function clrPr(){['eid','pNm','pIc','pPr','pSt','pMp','pDs'].forEach(id=>document.getElementById(id).value='');}
 async function edPr(id){
   const prods = _prodsCache.length ? _prodsCache : await db.prods();
   const p = prods.find(g=>String(g.id)===String(id));
@@ -980,6 +1083,9 @@ async function checkout(){
             desc:  i.descripcion || 'Piedra preciosa — La Cueva'
           };
         })
+        ,
+         shippingCost: shippingWidget.costoEnvio,
+         cpDestino: document.getElementById('shipping-cp')?.value || ''
       })
     });
 

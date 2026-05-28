@@ -27,7 +27,7 @@ module.exports = async (req, res) => {
   }
 
   try {
-    const { items } = req.body;
+    const { items, shippingCost } = req.body;
 
     if (!items || !items.length) {
       return res.status(400).json({ error: 'El carrito está vacío' });
@@ -44,7 +44,17 @@ module.exports = async (req, res) => {
     console.log(`[MP] Items recibidos: ${itemCount}`);
     items.forEach((item, i) => console.log(`  [${i+1}] ${item.name} → $${item.price}`));
     console.log(`[MP] TOTAL A COBRAR: $${totalAmount}`);
-
+    // Agregar costo de envío si existe
+let finalAmount = totalAmount;
+if (shippingCost && shippingCost > 0) {
+  finalAmount = totalAmount + shippingCost;
+  items.push({
+    title: "Envío — Correo Argentino PAQ.AR",
+    quantity: 1,
+    unit_price: Number(shippingCost),
+    currency_id: 'ARS'
+  });
+}
     const title       = itemCount === 1
       ? (items[0].name || 'Piedra preciosa')
       : `LA CUEVA · ${itemCount} productos`;
@@ -56,7 +66,7 @@ module.exports = async (req, res) => {
       items: [{
         title,
         quantity:    1,
-        unit_price:  totalAmount,
+        unit_price: finalAmount,
         currency_id: 'ARS',
         description
       }],
